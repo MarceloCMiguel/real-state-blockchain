@@ -1,6 +1,7 @@
 
-# Dicionário que indica se o usuário comprou um ticket
+# Dicionário que indica quanto o usuário sacou de dividendos
 users_withdraw: public(HashMap[address, uint256])
+# Dicionario que indica número de cotas do usuário
 users_num_cota: public(HashMap[address,uint256])
 # Valor da cota
 patrimonio: uint256
@@ -37,7 +38,8 @@ def buy(num_buy:uint256 ):
     self.count -= num_buy
 
     self.users_num_cota[msg.sender] += num_buy
-    self.users_withdraw[msg.sender] += num_buy* self.div_cota    
+    self.users_withdraw[msg.sender] += num_buy* self.div_cota
+    
 
 @external
 @payable
@@ -45,18 +47,29 @@ def deposity_div():
     assert msg.sender == self.owner
     self.div_cota += msg.value/self.total_tickets
     
-@external
-@payable
-def sacar():
-    assert (self.div_cota * self.users_num_cota[msg.sender]) - self.users_withdraw[msg.sender] > 0 
-    realizar o pagamento
 
-    self.users_withdraw[msg.sender] = (self.div_cota * self.users_num_cota[msg.sender])
+@external
+def sacar():
+    # envia dinheiro para o cotista
+    send(msg.sender, self.users_num_cota[msg.sender]*self.div_cota - self.users_withdraw[msg.sender])
+
+    #atualiza seu histórico de saque
+    self.users_withdraw[msg.sender] += self.div_cota * self.users_num_cota[msg.sender]
+
+
+@external
+def sell(num_cotas:uint256):
+
+    assert num_cotas <= self.users_num_cota[msg.sender]
+    
+    # Envia possíveis dividendos para o vendedor referente a cota vendida
+    send(msg.sender,((self.div_cota*self.users_num_cota[msg.sender]-self.users_withdraw[msg.sender])/self.users_num_cota[msg.sender])* num_cotas)
+    self.users_withdraw[msg.sender] = (self.users_withdraw[msg.sender] / self.users_num_cota[msg.sender]) * (self.users_num_cota[msg.sender] - num_cotas)
 
     
+    
+    
+    self.users_num_cota[msg.sender] -= num_cotas
 
-    # self.users[msg.sender] =  Investor({
-    #     owner: msg.sender,
-    #     withdraw: 0,
-    #     num_cotas:  self.users[msg.sender].num_cotas + cota_user
-    #     })
+    self.count += num_cotas
+    
