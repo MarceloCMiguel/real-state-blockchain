@@ -16,6 +16,11 @@ count: uint256
 
 div_cota: uint256
 
+sell_price: uint256
+
+end: bool
+
+balanco_atual: uint256
 # Função que roda quando é feito o deploy do contrato
 # IPO
 @external
@@ -26,10 +31,16 @@ def __init__(price: uint256, total_tickets: uint256):
     self.total_tickets = total_tickets
     self.count = total_tickets
     self.div_cota = 0
+    self.balanco_atual = 0
+    self.end = False
+    self.sell_price = (self.patrimonio / self.total_tickets)*80/100
 
 @external
 @payable
 def buy(num_buy:uint256 ):
+
+    assert self.end == False
+
     # verifica se valor depositado é maior que o valor de uma cota
     assert msg.value >= num_buy*(self.patrimonio/self.total_tickets)
 
@@ -37,9 +48,10 @@ def buy(num_buy:uint256 ):
     assert self.count >= num_buy
     self.count -= num_buy
 
+    self.balanco_atual+= num_buy * (self.patrimonio/self.total_tickets)
     self.users_num_cota[msg.sender] += num_buy
     self.users_withdraw[msg.sender] += num_buy* self.div_cota
-    
+
 
 @external
 @payable
@@ -60,12 +72,16 @@ def sacar():
 @external
 def sell(num_cotas:uint256):
 
+    assert self.end == False
+
     assert num_cotas <= self.users_num_cota[msg.sender]
-    
     # Envia possíveis dividendos para o vendedor referente a cota vendida
     send(msg.sender,((self.div_cota*self.users_num_cota[msg.sender]-self.users_withdraw[msg.sender])/self.users_num_cota[msg.sender])* num_cotas)
     self.users_withdraw[msg.sender] = (self.users_withdraw[msg.sender] / self.users_num_cota[msg.sender]) * (self.users_num_cota[msg.sender] - num_cotas)
-
+    
+    # envia 80% do valor das cotas para o dono
+    send(msg.sender, (80/100)*num_cotas * self.patrimonio /self.total_tickets)
+    self.balanco_atual -= num_cotas* (self.patrimonio/self.total_tickets)
     
     
     
@@ -73,3 +89,12 @@ def sell(num_cotas:uint256):
 
     self.count += num_cotas
     
+
+@external
+def opa():
+    assert self.count == 0
+    assert self.end == False
+
+    self.end = True
+    send(self.owner, self.balanco_atual)
+
