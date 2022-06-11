@@ -39,24 +39,35 @@ def __init__(price: uint256, total_tickets: uint256):
 @payable
 def buy(num_buy:uint256 ):
 
+    # verifica se ainda não foi feito o OPA
     assert self.end == False
 
-    # verifica se valor depositado é maior que o valor de uma cota
+        # verifica se há o número de cotas necessário
+    assert self.count >= num_buy
+
+    # verifica se valor depositado é maior ou igual ao valor pedido
     assert msg.value >= num_buy*(self.patrimonio/self.total_tickets)
 
-    # número de cotas que o usuário consegue comprar
-    assert self.count >= num_buy
+    # desconta do contrato o número de cotas
     self.count -= num_buy
 
+    #atualiza balanço do contrato (variavel que considera apenas compras e vendas)
     self.balanco_atual+= num_buy * (self.patrimonio/self.total_tickets)
+    
+    # adiciona cotas para o usuário
     self.users_num_cota[msg.sender] += num_buy
+    
+    # adiciona withdraw pelo div_cota atual
     self.users_withdraw[msg.sender] += num_buy* self.div_cota
 
 
 @external
 @payable
 def deposity_div():
+    # confirma que é o owner
     assert msg.sender == self.owner
+    
+    # adiciona div_cota
     self.div_cota += msg.value/self.total_tickets
     
 
@@ -72,21 +83,28 @@ def sacar():
 @external
 def sell(num_cotas:uint256):
 
+    # Verifica se ainda não foi feito o OPA
     assert self.end == False
 
+    # verifica se o cotista possui cotas necessárias a serem vendidas
     assert num_cotas <= self.users_num_cota[msg.sender]
-    # Envia possíveis dividendos para o vendedor referente a cota vendida
-    send(msg.sender,((self.div_cota*self.users_num_cota[msg.sender]-self.users_withdraw[msg.sender])/self.users_num_cota[msg.sender])* num_cotas)
+    
+    # Envia possíveis dividendos para o cotista referente a cota vendida
+    send(msg.sender,(num_cotas * self.patrimonio * 80 /(self.total_tickets*100)) + ((self.div_cota*self.users_num_cota[msg.sender]-self.users_withdraw[msg.sender])/self.users_num_cota[msg.sender])* num_cotas )
+    
+    # Atualiza seu withdraw
     self.users_withdraw[msg.sender] = (self.users_withdraw[msg.sender] / self.users_num_cota[msg.sender]) * (self.users_num_cota[msg.sender] - num_cotas)
     
-    # envia 80% do valor das cotas para o dono
-    send(msg.sender, (80/100)*num_cotas * self.patrimonio /self.total_tickets)
+    # envia 80% do valor das cotas para o cotista
+    # send(msg.sender, num_cotas * self.patrimonio /self.total_tickets)
+    
+    # Atualiza balanço
     self.balanco_atual -= num_cotas* (self.patrimonio/self.total_tickets)
     
-    
-    
+    # Atualiza cotas do cotista
     self.users_num_cota[msg.sender] -= num_cotas
 
+    # Atualiza números de cotas do contrato
     self.count += num_cotas
     
 
